@@ -13,7 +13,11 @@ knitr::opts_chunk$set(echo = FALSE, comment="", eval = FALSE, cache = TRUE)
 To review the report, please click on
 
     Project.md
+
 or
-    Porject.pdf
 
+    Project.pdf
 
+or
+
+https://bryan-w-xu.github.io/Project.html
