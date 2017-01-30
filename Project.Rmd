@@ -1,0 +1,485 @@
+---
+title: "Quantitative Model to Classify  Barbell Lift Movements"
+author: "Bryan Xu"
+date: "January 29, 2017"
+output:
+  pdf_document: default
+  html_document:
+    keep_md: yes
+subtitle: Machine Learning - Prediction Assignment
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, comment="", eval = FALSE, cache = TRUE)
+```
+
+
+
+###Summary
+We used the Weight Lifting Exercises Dataset[1] to train and compare several statistical models, which aim at classifying barbell lift movements based on quantitative data provided by sensors worn by exercisers. The most accurate model is Random Forest, which provide 100% identification rate on the training data with an estimated error of 0.38%.
+
+[1. Reference http://groupware.les.inf.puc-rio.br/har#ixzz4XCjGGacm ]
+
+###1. Introdution
+The advent of wearable personal fitness monitoring devices, such as *Fitbit, Jawbone Up,  and Nike FuelBand*, allow a large amount of data to be collected. Using the data to analyse how much a wearer exercises has become a popular subject. The Weight Lifting Exercises Dataset is designed to answer a more sophisticated question: "how (well)" an activity was performed by the wearer.
+
+Six participants were asked to perform the Unilateral Dumbbell Biceps Curl in five different fashions.  
+
+- Class A:  exactly according to  specification   
+- Class B:  throwing the elbows to the front   
+- Class C: lifting the dumbbell only halfway   
+- Class D: lowering the dumbbell only halfway    
+- Class E: throwing the hips to the front   
+
+Class A corresponds to the "correct" execution of the exercise, while the other 4 classes correspond to common mistakes.
+
+We used the dataset to build a model to identify the class of a movement based on the quantitative data collected by the wearable monitoring devices.
+
+###2. Description of the Weight Lifting Exercises Dataset
+
+The dataset consists of two parts.
+
+The training data for this project are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+```{r}
+    fileURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+    download.file(fileURL, destfile = "./pml-testing.csv")
+    
+    fileURL <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+    download.file(fileURL, destfile = "./pml-testing.csv")
+```
+```{r eval=TRUE, echo=TRUE}
+    training <- read.csv("./pml-training.csv")
+    testing  <- read.csv("./pml-testing.csv")
+```
+
+The training dataset has 160 columns and 19622 rows, i.e. observations. The test dataset has 160 columns and 20 observations, which will be used as the final test of the model.
+
+###3. Tidying Data
+
+```{r}
+   str(training[,1:7])
+```
+Columns 1 to 7 contain exercisers, time stamps and other information not relevant to movements. We'll omit these columns.
+
+Many columns of the test dataset have only NAs. The corresponding columns of the training dataset have no useful data at all, or only a small amount of useful data. We'll omit these columns.
+
+
+```{r}
+      summary(training[, 8:10] )
+      summary(testing[, 8:10] )
+      
+      ## KEEP  8:10
+```
+
+For example, Columns 11 to 14. We'll only keep column 11. 
+
+
+Training Dataset:
+```{r eval=TRUE}
+      summary(training[, 11:14] )
+      ##   DIV/0!  Col 11: 10 ;  12: 32 ; 14: 406 ; 15: 9
+      ##   C0l 14: rest is empty   OMIT
+      ##    12 ~ 15: Empty 19216
+```
+
+Testing Dataset:
+```{r eval=TRUE}
+      summary(testing[, 11:14] )
+      
+      ## KEEP 11
+```
+
+
+```{r}
+      summary(training[, 16:20] )
+      ## 16:  Empty 12916 ; DIV/0! 32
+      ## 17:  Empty 12916 ; DIV/0 406 ;  OMIT
+      ## 18:  NA 19216
+      ## 19:  NA  19216
+      ## 20:  Empty 12916
+
+      summary(testing[, 16:20] )
+      
+      ## KEEP  none
+```
+
+```{r}
+      summary(training[, 21:25] )
+      ## 21: NA 19216
+      ## 22: NA 19216
+      ## 23: Empty 19216
+      ## 24: NA 19216
+      ## 25: NA 19216
+
+      summary(testing[, 21:25] )
+      
+      ## KEEP NONE
+```
+
+```{r}
+      summary(training[, 26:30] )
+      ## DIV/0  Col 26: 10, then 0, 19216 empty;   OMIT
+      ## NAs:  27~30  19216 NAs
+
+     summary(testing[, 26:30] )
+     
+     ## KEEP NONE
+```
+
+```{r}
+      summary(training[, 31:35] )
+      ## NAs:  31~35  12916 NAs
+
+      summary(testing[, 31:35] )
+      
+      ## KEEP none
+```
+
+```{r}
+      summary(training[, 36:40] )
+      ## NAs:  36  12916 NAs
+
+      summary(testing[, 36:40] )
+      ## KEEP 37:40
+```
+
+
+```{r}
+      summary(training[, 41:45] )
+      summary(testing[, 41:45] )
+      
+      ## KEEP  41:45
+```
+
+
+```{r}
+      summary(training[, 46:50] )
+      ##  50: 12916 NAs
+
+      summary(testing[, 46:50] )
+      
+      ## KEEP 46:49
+```
+
+```{r}
+      summary(training[, 51:55] )
+      ##  51~55: 12916 NAs
+      summary(testing[, 51:55] )
+      ## KEEP none
+```
+
+```{r}
+      summary(training[, 56:60] )
+      ## 56 ~ 59: 12916 NAs
+      summary(testing[, 56:60] )
+      
+      ## KEEP 60
+```
+
+```{r}
+      summary(training[, 61:65] )
+      summary(testing[, 61:65] )
+      
+      ## KEEP 61:65
+```
+
+```{r}
+      summary(training[, 66:70] )
+      ## 69, 70: 12916 empty
+      ## DIV/0  69: 78 ; 70: 80
+      summary(testing[, 66:70] )
+      
+      ## KEEP 66:68
+```
+
+```{r}
+      summary(training[, 71:75] )
+      ## 71 ~ 74: 12916 empty
+      ## DIV/0  71: 11 ; 72: 77 ; 73: 80 ; 74: 11 ;
+      ## NA 75 : 12916
+
+      summary(testing[, 71:75] )
+      
+      ## KEEP  None
+```
+```{r}
+      summary(training[, 76:80] )
+      ## NA 76 ~ 80 : 19216
+      summary(testing[, 76:80] )
+      
+      ## KEEP None
+```
+
+```{r}
+      summary(training[, 81:85] )
+      ## NA 81 ~ 83 : 19216
+      summary(testing[, 81:85] )
+      
+      ## KEEP 84:85
+```
+
+```{r}
+      summary(training[, 86:90] )
+      ## 87 ~ 90: 19216 empty
+      ## 90: DIV/0 406 (rest)
+
+      summary(testing[, 86:90] )
+      
+      ## KEEP 86
+```
+
+```{r}
+      summary(training[, 91:95] )
+      ## Empty 91  : 19216
+      ## 92: 19216 Empty; 406 DIV/0  OMIT
+      ## 93~94 NA 19216
+
+      summary(testing[, 91:95] )
+      
+      ## KEEP None
+```
+
+```{r}
+      summary(training[, 96:100] )
+      ## 98: 19216 Empty; 
+      ## 96, 97, 99, 100: NA 19216
+
+      summary(testing[, 96:100] )
+      
+      ## KEEP none
+```
+
+```{r}
+      summary(training[, 101:105] )
+      ## 101: 19216 Empty; 5 DIV/0; 0 401 
+      ## 103 ~ 105: NA 19216
+
+      summary(testing[, 101:105] )
+      
+      ## KEEP 102
+```
+
+```{r}
+      summary(training[, 106:110] )
+      ## 106 ~ 110: NA 19216
+
+      summary(testing[, 106:110] )
+      
+      ## KEEP none
+```
+
+```{r}
+      summary(training[, 111:115] )
+      ## 111 ~ 112: NA 19216
+      summary(testing[, 111:115] )
+      
+      ## KEEP 113:115
+```
+
+```{r}
+      summary(training[, 116:120] )
+      summary(testing[, 116:120] )
+      
+      ## KEEP 116:120
+```
+
+```{r}
+      summary(training[, 121:125] )
+      ## 125 19216 Empty; 
+      summary(testing[, 121:125] )
+      
+      ## KEEP 121:124
+```
+
+```{r}
+      summary(training[, 126:130] )
+      ## 126: 19216 Empty; 85 DIV/0;  
+      ## 127: 19216 Empty; 406 DIV/0;   OMIT  
+      ## 128 ~ 129:  Empty 19216
+      ## 130: 19216 Empty; 406 DIV/0;   OMIT  
+      summary(testing[, 126:130] )
+      
+      ## KEEP None
+```
+
+```{r}
+      summary(training[, 131:135] )
+      ## 131: NA 19216 ;   
+      ## 132: NA 19216   
+      ## 133: Empty 19216 ; DIV/0 84
+      ## 134 ~ 135: NA 19216 Empty;  
+      summary(testing[, 131:135] )
+      
+      ## KEEP None
+```
+
+```{r}
+      summary(training[, 136:140] )
+      ## 136: Empty 19216 ;   
+      ## 137: NA 19216   
+      ## 138: NA 19216 ; 
+      ## 139: NA 19216 ; DIV/0 84 ; 0 84;  OMIT
+      summary(testing[, 136:140] )
+      
+      ## Keep 140
+```
+
+```{r}
+      summary(training[, 141:145] )
+      ## 141 ~ 145: NA 19216   
+      summary(testing[, 141:145] )
+      
+      ## KEEP None
+```
+
+```{r}
+      summary(training[, 146:150] )
+      ## 146 ~ 150: NA 19216 
+      summary(testing[, 146:150] )
+      
+      ## KEEP None
+```
+
+```{r}
+      summary(training[, 151:155] )
+      summary(testing[, 151:155] )
+      
+      ## KEEP 151:155
+```
+
+```{r}
+      summary(training[, 156:160] )
+      summary(testing[, 156:160] )
+      
+      ## KEEP 156:160
+```
+
+After examine all columns, we kept Columns: 8:11, 37:49, 60:68, 84:86, 102, 113:124, 140, 151:160, and created new training and testing datasets.
+
+```{r echo=TRUE, eval=TRUE}
+      keep <- c(8:11, 37:49, 60:68, 84:86, 102, 113:124, 140, 151:160)
+      new_training <- training[, keep]
+      new_testing <- testing[, keep]
+```
+
+
+###4. Build and Compare Models.
+
+We built several models using:   
+
+- R caret package   
+- K-fold Cross Validation with k = 5   
+- Classification methods: rpart, gbm, lda, svm, rf    
+
+```{r}
+      # 5 fold cross validation
+      
+      library(caret)
+      control <- trainControl(method = 'cv', number = 5)
+      metric <- 'Accuracy'
+      
+      set.seed(128)
+
+      model_rpart_k <- train( classe ~ ., method = "rpart", data = new_training, metric = metric, trControl = control)
+      valid_rpart_k <- predict(model_rpart_k, new_training)
+      accu_rpart_k  <- confusionMatrix( new_training$classe, valid_rpart_k)
+      accu_rpart_k$overall
+```
+
+```{r}
+      # 5 fold cross validation
+      
+      set.seed(128)
+
+      model_gbm_k <- train( classe ~ ., method = "gbm", data = new_training, metric = metric, trControl = control, verbose = FALSE)
+      valid_gbm_k <- predict(model_gbm_k, new_training)
+      accu_gbm_k  <- confusionMatrix( new_training$classe, valid_gbm_k)
+      accu_gbm_k$overall
+```
+
+```{r}
+      # 5 fold cross validation
+      
+      set.seed(128)
+
+      model_lda_k <- train( classe ~ ., method = "lda", data = new_training, metric = metric, trControl = control, verbose = FALSE)
+      valid_lda_k <- predict(model_lda_k, new_training)
+      accu_lda_k  <- confusionMatrix( new_training$classe, valid_lda_k)
+      accu_lda_k$overall
+```
+
+```{r}
+      # 5 fold cross validation
+      
+      set.seed(128)
+
+      model_svm_k <- train( classe ~ ., method = "svmRadial", data = new_training, metric = metric, trControl = control, verbose = FALSE)
+      valid_svm_k <- predict(model_svm_k, new_training)
+      accu_svm_k  <- confusionMatrix( new_training$classe, valid_svm_k)
+      accu_svm_k$overall
+```
+
+```{r}
+      # 5 fold cross validation
+      library(caret)
+      control <- trainControl(method = 'cv', number = 5)
+      metric <- 'Accuracy'
+      
+      set.seed(128)
+      model_rf_k <- train( classe ~ ., method = "rf", data = new_training, metric = metric, trControl = control, verbose = FALSE)
+```
+
+```{r}
+      valid_rf_k <- predict(model_rf_k, new_training)
+      accu_rf_k  <- confusionMatrix( new_training$classe, valid_rf_k)
+      accu_rf_k$overall
+```
+
+The table below summarized the cross validation accuracy and corresponding 95% confidence intervals.
+
+Method   |  Accuracy  | 95% Confidence Interval| Kappa
+---------|------------|------------------------|---------           
+rpart    |   0.496    |     (0.489, 0.503)     | 0.341      
+gbm      |   0.975    |     (0.972, 0.977)      | 0.968      
+lda      |   0.705    |     (0.698, 0.711)      | 0.626   
+svm      |   0.945    |     (0.941, 0.948)      | 0.930      
+rf       |   1.000    |     (0.9998, 1.00)      | 1.000
+
+The best model is Random Forest.
+
+###5. Final Model
+
+Based on accuracy, we chose Random Forest as the final model. The estimated error rate is 0.38%.
+
+```{r eval=TRUE, echo=TRUE}
+model_rf_k$finalModel
+```
+
+Using this model to classify the movement recorded in the test dataset,
+
+```{r eval=TRUE, echo=TRUE}      
+      predict_rf_k <- predict(model_rf_k, new_testing)
+      predict_rf_k
+```
+A 100% accuracy was achieved.
+
+```{r eval=TRUE}
+      library(ggplot2)
+      plot <- qplot(training$yaw_belt, training$pitch_belt, color=training$classe)
+      plot
+      
+      plot <- qplot(training$yaw_belt, training$roll_belt, color=training$classe)
+      plot      
+
+      plot <- qplot(training$pitch_belt, training$magnet_belt_z, color=training$classe)
+      plot
+      
+      plot <- qplot(training$yaw_belt, training$gyros_belt_x, color=training$classe)
+      plot
+      
+```
